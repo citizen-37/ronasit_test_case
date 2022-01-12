@@ -8,12 +8,16 @@ use App\Lib\OpenWeatherMap\Factory\RequestFactoryInterface;
 use App\Lib\OpenWeatherMap\InteractionInterface;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Illuminate\Support\Facades\Cache;
 
 class WeatherController extends Controller
 {
     /**
+     * @param $id
      * @param Request $request
-     * @return ResponseResource| Response
+     * @param InteractionInterface $interaction
+     * @param RequestFactoryInterface $requestFactory
+     * @return ResponseResource|Response
      */
     public function currentByCityId($id, Request $request, InteractionInterface $interaction, RequestFactoryInterface $requestFactory): Response|ResponseResource
     {
@@ -23,9 +27,20 @@ class WeatherController extends Controller
             return $this->validationErrorsResponse($validator);
         }
 
-        $interactionRequest = $requestFactory->createWithId($id, $request->get('units'), 'ru');
+        $interactionRequest = $requestFactory->createWithId(
+            $id,
+            $request->get('units'),
+            'ru'
+        );
 
-        return new ResponseResource($interaction->getCurrentWeatherById($interactionRequest));
+        $key = sprintf("%s_%s",
+            $interactionRequest->getId(),
+            $interactionRequest->getUnits()
+        );
+
+        return Cache::remember($key, 60 * 60, function () use ($interactionRequest, $interaction) {
+            return new ResponseResource($interaction->getCurrentWeatherById($interactionRequest));
+        });
     }
 
     /**
@@ -33,7 +48,6 @@ class WeatherController extends Controller
      * @param InteractionInterface $interaction
      * @param RequestFactoryInterface $requestFactory
      * @return Response|ResponseResource
-     * @throws \GuzzleHttp\Exception\GuzzleException
      */
     public function currentByCoords(Request $request, InteractionInterface $interaction, RequestFactoryInterface $requestFactory): Response|ResponseResource
     {
@@ -43,9 +57,22 @@ class WeatherController extends Controller
             return $this->validationErrorsResponse($validator);
         }
 
-        $interactionRequest = $requestFactory->createWithCoords($request->get('lat'), $request->get('lon'), $request->get('units'), 'ru');
+        $interactionRequest = $requestFactory->createWithCoords(
+            $request->get('lat'),
+            $request->get('lon'),
+            $request->get('units'),
+            'ru'
+        );
 
-        return new ResponseResource($interaction->getCurrentWeatherByCoords($interactionRequest));
+        $key = sprintf("%s_%s_%s",
+            $interactionRequest->getPoint()->getLon(),
+            $interactionRequest->getPoint()->getLat(),
+            $interactionRequest->getUnits()
+        );
+
+        return Cache::remember($key, 60 * 60, function () use ($interactionRequest, $interaction) {
+            return new ResponseResource($interaction->getCurrentWeatherByCoords($interactionRequest));
+        });
     }
 
     /**
