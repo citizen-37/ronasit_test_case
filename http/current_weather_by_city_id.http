@@ -1,0 +1,1 @@
+GET http://api.openweathermap.org/data/2.5/weather?id=4171563&lang=ru&appid=9d7159c58fcd48840aba3d7f64efcb33
